@@ -1,10 +1,67 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://devfuad.com/weblocker';
+// Define environment type
+interface ImportMetaEnv {
+  PROD: boolean;
+}
+
+// Define the base URL based on environment
+const BASE_URL = (import.meta as any).env.PROD 
+  ? 'https://devfuadc.com/weblocker'  // Production URL
+  : 'http://localhost/weblocker';     // Development URL
+
+// Dummy data for fallback
+const dummyData = {
+  users: {
+    "user1": {
+      username: "user1",
+      websites: {
+        "example.com": { locked: false },
+        "test.com": { locked: true, unlock_timestamp: "2024-02-20T12:00:00Z" }
+      },
+      activityLog: [
+        {
+          id: 1,
+          timestamp: "2024-02-19T10:00:00Z",
+          action: "Website Locked",
+          details: "example.com was locked",
+          status: "success" as const
+        }
+      ]
+    }
+  },
+  activityLog: [
+    {
+      id: 1,
+      timestamp: "2024-02-19T10:00:00Z",
+      action: "Website Locked",
+      details: "example.com was locked by user1",
+      status: "success" as const
+    }
+  ]
+};
+
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// Add response interceptor for error handling
+api.interceptors.response.use(
+  response => response,
+  error => {
+    console.error('API Error:', error);
+    return Promise.reject(error);
+  }
+);
 
 export interface Website {
   locked: boolean;
-  unlock_timestamp?: number;
+  unlock_timestamp?: string;
 }
 
 export interface ActivityEntry {
@@ -29,83 +86,95 @@ export interface Stats {
   recentActivity: ActivityEntry[];
 }
 
+interface DummyData {
+  users: Record<string, UserData>;
+  activityLog: ActivityEntry[];
+}
+
+// Function to fetch data with fallback
+async function fetchWithFallback<T>(endpoint: string, fallbackData: T): Promise<T> {
+  try {
+    const response = await api.get(endpoint);
+    return response.data;
+  } catch (error) {
+    console.warn(`Failed to fetch ${endpoint}, using fallback data`);
+    return fallbackData;
+  }
+}
+
 export const fetchDashboardStats = async (): Promise<Stats> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/data.json`);
-    const data = response.data;
-    
-    // Calculate stats from the data
-    const websites = data.websites || {};
-    const activeWebsites = Object.values(websites).filter((w: any) => !(w as Website).locked).length;
-    
-    const stats: Stats = {
-      totalUsers: data.totalUsers || 0,
-      activeUsers: data.activeUsers || 0,
+    const data = await fetchWithFallback<DummyData>('/data.json', dummyData);
+    const websites = data.users ? Object.values(data.users).reduce((acc: Record<string, Website>, user: UserData) => {
+      return { ...acc, ...user.websites };
+    }, {}) : {};
+
+    return {
+      totalUsers: Object.keys(data.users || {}).length,
+      activeUsers: Object.keys(data.users || {}).length,
       totalWebsites: Object.keys(websites).length,
-      activeWebsites,
+      activeWebsites: Object.values(websites).filter((site: Website) => !site.locked).length,
       recentActivity: data.activityLog || []
     };
-    
-    return stats;
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
-    throw error;
+    return {
+      totalUsers: 0,
+      activeUsers: 0,
+      totalWebsites: 0,
+      activeWebsites: 0,
+      recentActivity: []
+    };
   }
 };
 
 export const fetchRecentActivity = async (): Promise<ActivityEntry[]> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/data.json`);
-    return response.data.activityLog || [];
+    const data = await fetchWithFallback<DummyData>('/data.json', dummyData);
+    return data.activityLog || [];
   } catch (error) {
     console.error('Error fetching recent activity:', error);
-    throw error;
+    return [];
   }
 };
 
 export const fetchSystemStatus = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/data.json`);
+    const response = await api.get('/status.php');
+    return response.data;
+  } catch (error) {
+    console.warn('Failed to fetch system status, using default values');
     return {
-      server: response.data.serverStatus || 'Online',
-      database: response.data.databaseStatus || 'Connected',
-      api: response.data.apiStatus || 'Operational'
+      server: 'Online',
+      database: 'Connected',
+      api: 'Operational'
     };
-  } catch (error) {
-    console.error('Error fetching system status:', error);
-    throw error;
   }
 };
 
-// Authentication functions
-export const login = async (username: string, password: string) => {
+export const getUserData = async (username: string): Promise<UserData | null> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/login.php`, {
-      username,
-      password
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error during login:', error);
-    throw error;
-  }
-};
-
-export const getUserData = async (username: string): Promise<UserData> => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/user.php`, {
-      params: { username }
-    });
-    return response.data;
+    const data = await fetchWithFallback<DummyData>('/data.json', dummyData);
+    return data.users[username] || null;
   } catch (error) {
     console.error('Error fetching user data:', error);
-    throw error;
+    return null;
+  }
+};
+
+export const login = async (username: string, password: string): Promise<boolean> => {
+  try {
+    const response = await api.post('/login.php', { username, password });
+    return response.data.success;
+  } catch (error) {
+    console.error('Login error:', error);
+    return false;
   }
 };
 
 export const checkAuth = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/auth.php`);
+    const response = await api.get('/auth.php');
     return response.data;
   } catch (error) {
     console.error('Error checking authentication:', error);
