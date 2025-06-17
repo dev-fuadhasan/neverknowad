@@ -1,5 +1,4 @@
-import { ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
@@ -8,11 +7,10 @@ import {
 } from 'lucide-react';
 
 interface LayoutProps {
-  children: ReactNode;
   onLogout: () => void;
 }
 
-const Layout = ({ children, onLogout }: LayoutProps) => {
+const Layout = ({ onLogout }: LayoutProps) => {
   const location = useLocation();
 
   const navigation = [
@@ -58,7 +56,7 @@ const Layout = ({ children, onLogout }: LayoutProps) => {
 
         {/* Main content */}
         <div className="ml-64 flex-1 p-8">
-          {children}
+          <Outlet />
         </div>
       </div>
     </div>

@@ -43,19 +43,17 @@ function App() {
           path="/"
           element={
             isAuthenticated ? (
-              <Layout onLogout={handleLogout}>
-                <Routes>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/users" element={<UserManagement />} />
-                  <Route path="/websites" element={<WebsiteManagement />} />
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                </Routes>
-              </Layout>
+              <Layout onLogout={handleLogout} />
             ) : (
               <Navigate to="/login" replace />
             )
           }
-        />
+        >
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="users" element={<UserManagement />} />
+          <Route path="websites" element={<WebsiteManagement />} />
+          <Route index element={<Navigate to="/dashboard" replace />} />
+        </Route>
       </Routes>
     </Router>
   );
