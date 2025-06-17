@@ -2,6 +2,9 @@
   command = "cd AdminDashboard && npm install && npm run build"
   publish = "AdminDashboard/dist"
 
+[build.environment]
+  NODE_VERSION = "18.17.0"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
