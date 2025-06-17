@@ -11,37 +11,6 @@ const BASE_URL = (import.meta as { env: ImportMetaEnv }).env.PROD
   ? 'https://devfuadc.com/weblocker'  // Production URL
   : 'http://localhost/weblocker';     // Development URL
 
-// Dummy data for fallback
-const dummyData = {
-  users: {
-    "user1": {
-      username: "user1",
-      websites: {
-        "example.com": { locked: false },
-        "test.com": { locked: true, unlock_timestamp: "2024-02-20T12:00:00Z" }
-      },
-      activityLog: [
-        {
-          id: 1,
-          timestamp: "2024-02-19T10:00:00Z",
-          action: "Website Locked",
-          details: "example.com was locked",
-          status: "success" as const
-        }
-      ]
-    }
-  },
-  activityLog: [
-    {
-      id: 1,
-      timestamp: "2024-02-19T10:00:00Z",
-      action: "Website Locked",
-      details: "example.com was locked by user1",
-      status: "success" as const
-    }
-  ]
-};
-
 // Create axios instance with default config
 const api = axios.create({
   baseURL: BASE_URL,
@@ -63,7 +32,7 @@ api.interceptors.response.use(
 
 export interface Website {
   locked: boolean;
-  unlock_timestamp?: string;
+  unlock_timestamp?: number;
 }
 
 export interface ActivityEntry {
@@ -88,36 +57,24 @@ export interface Stats {
   recentActivity: ActivityEntry[];
 }
 
-interface DummyData {
-  users: Record<string, UserData>;
-  activityLog: ActivityEntry[];
-}
-
-// Function to fetch data with fallback
-async function fetchWithFallback<T>(endpoint: string, fallbackData: T): Promise<T> {
+// Function to make API calls
+async function makeApiCall<T>(endpoint: string, data?: any): Promise<T> {
   try {
-    const response = await api.get(endpoint);
+    const response = await api.post(endpoint, data);
     return response.data;
   } catch (error) {
-    console.warn(`Failed to fetch ${endpoint}, using fallback data`);
-    return fallbackData;
+    console.error(`API call to ${endpoint} failed:`, error);
+    throw error;
   }
 }
 
 export const fetchDashboardStats = async (): Promise<Stats> => {
   try {
-    const data = await fetchWithFallback<DummyData>('/data.json', dummyData);
-    const websites = data.users ? Object.values(data.users).reduce((acc: Record<string, Website>, user: UserData) => {
-      return { ...acc, ...user.websites };
-    }, {}) : {};
-
-    return {
-      totalUsers: Object.keys(data.users || {}).length,
-      activeUsers: Object.keys(data.users || {}).length,
-      totalWebsites: Object.keys(websites).length,
-      activeWebsites: Object.values(websites).filter((site: Website) => !site.locked).length,
-      recentActivity: data.activityLog || []
-    };
+    const data = await makeApiCall<{ success: boolean; stats: Stats }>('stats.php');
+    if (data.success) {
+      return data.stats;
+    }
+    throw new Error('Failed to fetch dashboard stats');
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
     return {
@@ -132,8 +89,11 @@ export const fetchDashboardStats = async (): Promise<Stats> => {
 
 export const fetchRecentActivity = async (): Promise<ActivityEntry[]> => {
   try {
-    const data = await fetchWithFallback<DummyData>('/data.json', dummyData);
-    return data.activityLog || [];
+    const data = await makeApiCall<{ success: boolean; activity: ActivityEntry[] }>('activity.php');
+    if (data.success) {
+      return data.activity;
+    }
+    throw new Error('Failed to fetch recent activity');
   } catch (error) {
     console.error('Error fetching recent activity:', error);
     return [];
@@ -142,8 +102,11 @@ export const fetchRecentActivity = async (): Promise<ActivityEntry[]> => {
 
 export const fetchSystemStatus = async () => {
   try {
-    const response = await api.get('/status.php');
-    return response.data;
+    const data = await makeApiCall<{ success: boolean; status: { server: string; database: string; api: string } }>('status.php');
+    if (data.success) {
+      return data.status;
+    }
+    throw new Error('Failed to fetch system status');
   } catch (error) {
     console.warn('Failed to fetch system status, using default values');
     return {
@@ -156,8 +119,11 @@ export const fetchSystemStatus = async () => {
 
 export const getUserData = async (username: string): Promise<UserData | null> => {
   try {
-    const data = await fetchWithFallback<DummyData>('/data.json', dummyData);
-    return data.users[username] || null;
+    const data = await makeApiCall<{ success: boolean; user: UserData }>('user.php', { username });
+    if (data.success) {
+      return data.user;
+    }
+    throw new Error('Failed to fetch user data');
   } catch (error) {
     console.error('Error fetching user data:', error);
     return null;
@@ -166,20 +132,13 @@ export const getUserData = async (username: string): Promise<UserData | null> =>
 
 export const login = async (username: string, password: string): Promise<boolean> => {
   try {
-    const response = await api.post('/login.php', { username, password });
-    return response.data.success;
+    const data = await makeApiCall<{ success: boolean; message?: string }>('login.php', { username, password });
+    if (data.success) {
+      return true;
+    }
+    throw new Error(data.message || 'Login failed');
   } catch (error) {
     console.error('Login error:', error);
     return false;
-  }
-};
-
-export const checkAuth = async () => {
-  try {
-    const response = await api.get('/auth.php');
-    return response.data;
-  } catch (error) {
-    console.error('Error checking authentication:', error);
-    throw error;
   }
 }; 
