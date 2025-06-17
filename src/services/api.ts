@@ -3,6 +3,7 @@ import axios from 'axios';
 // Define environment type
 interface ImportMetaEnv {
   PROD: boolean;
+  VITE_API_URL?: string;
 }
 
 // Define the base URL based on environment
@@ -46,7 +47,8 @@ const api = axios.create({
   baseURL: BASE_URL,
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
   }
 });
 
