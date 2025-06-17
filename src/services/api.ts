@@ -7,7 +7,7 @@ interface ImportMetaEnv {
 }
 
 // Define the base URL based on environment
-const BASE_URL = (import.meta as any).env.PROD 
+const BASE_URL = (import.meta as { env: ImportMetaEnv }).env.PROD 
   ? 'https://devfuadc.com/weblocker'  // Production URL
   : 'http://localhost/weblocker';     // Development URL
 
