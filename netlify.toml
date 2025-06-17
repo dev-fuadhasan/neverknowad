@@ -1,6 +1,6 @@
 [build]
-  command = "npm install && npm run build"
-  publish = "dist"
+  command = "cd AdminDashboard && npm install && npm run build"
+  publish = "AdminDashboard/dist"
 
 [[redirects]]
   from = "/*"
