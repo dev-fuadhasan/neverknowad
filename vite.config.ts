@@ -21,10 +21,17 @@ export default defineConfig({
         },
       },
     },
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
   },
   server: {
     port: 3000,
     host: true,
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom'],
   },
   define: {
     'process.env': process.env,
